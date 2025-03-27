@@ -1,0 +1,184 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <!-- Обеспечиваем корректное масштабирование на мобильных устройствах -->
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Сканворд</title>
+  <!-- Подключение современного шрифта -->
+  <link href="https://fonts.googleapis.com/css?family=Roboto:400,700&display=swap" rel="stylesheet">
+  <style>
+    body {
+      margin: 0;
+      font-family: 'Roboto', sans-serif;
+      background: #f0f2f5;
+      color: #333;
+      padding: 10px;
+    }
+    .container {
+      max-width: 600px;
+      margin: 0 auto;
+      background: #fff;
+      padding: 15px;
+      border-radius: 8px;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.1);
+    }
+    h1 {
+      text-align: center;
+      margin-top: 10px;
+      font-size: 24px;
+      color: #2c3e50;
+    }
+    h2 {
+      font-size: 20px;
+      margin-bottom: 10px;
+      color: #34495e;
+    }
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(10, 1fr);
+      gap: 2px;
+      margin: 20px 0;
+    }
+    .cell {
+      background: #ecf0f1;
+      border: 1px solid #bdc3c7;
+      position: relative;
+      /* Используем соотношение сторон для клеток */
+      aspect-ratio: 1/1;
+    }
+    .cell input {
+      width: 100%;
+      height: 100%;
+      border: none;
+      text-align: center;
+      font-size: 18px;
+      text-transform: uppercase;
+      outline: none;
+      background: transparent;
+    }
+    .black {
+      background: #34495e;
+    }
+    .number {
+      position: absolute;
+      top: 2px;
+      left: 2px;
+      font-size: 10px;
+      background: rgba(255, 255, 255, 0.8);
+      padding: 1px 3px;
+      border-radius: 3px;
+    }
+    #clues {
+      background: #fafafa;
+      border: 1px solid #bdc3c7;
+      padding: 15px;
+      border-radius: 8px;
+      margin-bottom: 20px;
+      font-size: 16px;
+      line-height: 1.4;
+    }
+    #clues div {
+      margin-bottom: 8px;
+    }
+    button {
+      display: block;
+      width: 100%;
+      padding: 12px;
+      font-size: 18px;
+      background: #27ae60;
+      border: none;
+      color: #fff;
+      border-radius: 8px;
+      cursor: pointer;
+      transition: background 0.3s;
+    }
+    button:active {
+      background: #1e8449;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>Сканворд</h1>
+    <div id="puzzle" class="grid"></div>
+    
+    <h2>Подсказки</h2>
+    <div id="clues"></div>
+    
+    <button onclick="checkAnswers()">Проверить</button>
+  </div>
+  
+  <script>
+    // Пример данных для сканворда (матрица 10x10: 0 – игровая клетка, 1 – заблокированная)
+    const gridData = [
+      [0,0,0,1,0,0,0,0,0,1],
+      [0,1,0,1,0,1,0,1,0,0],
+      [0,0,0,0,0,0,1,0,0,0],
+      [1,0,1,0,1,0,0,0,1,0],
+      [0,0,0,0,0,1,0,0,0,0],
+      [0,1,0,1,0,0,0,1,0,0],
+      [0,0,0,0,1,0,0,0,0,1],
+      [0,1,0,0,0,0,1,0,0,0],
+      [0,0,1,0,0,0,0,0,1,0],
+      [1,0,0,0,1,0,0,0,0,0],
+    ];
+
+    // Пример подсказок (15 слов)
+    const clues = [
+      { number: 1, direction: "горизонтально", clue: "Программный ___", answer: "КОД" },
+      { number: 2, direction: "вертикально", clue: "Чат-___", answer: "БОТ" },
+      { number: 3, direction: "горизонтально", clue: "Мессенджер", answer: "ТЕЛЕГРАМ" },
+      { number: 4, direction: "вертикально", clue: "Интернет-___", answer: "ВЕБ" },
+      { number: 5, direction: "горизонтально", clue: "Мобильное ___", answer: "АПП" },
+      { number: 6, direction: "вертикально", clue: "Сканировать", answer: "СКАН" },
+      { number: 7, direction: "горизонтально", clue: "Головоломка", answer: "ПАЗЛ" },
+      { number: 8, direction: "вертикально", clue: "Единица информации", answer: "СЛОВО" },
+      { number: 9, direction: "горизонтально", clue: "Лист растения", answer: "ЛИСТ" },
+      { number: 10, direction: "вертикально", clue: "Язык разметки", answer: "HTML" },
+      { number: 11, direction: "горизонтально", clue: "Каскадные стили", answer: "CSS" },
+      { number: 12, direction: "вертикально", clue: "Язык программирования", answer: "JS" },
+      { number: 13, direction: "горизонтально", clue: "Змея", answer: "ПИТОН" },
+      { number: 14, direction: "вертикально", clue: "Веб-фреймворк", answer: "ФЛАСК" },
+      { number: 15, direction: "горизонтально", clue: "Онлайн-общение", answer: "ЧАТ" },
+    ];
+
+    const puzzleContainer = document.getElementById("puzzle");
+    gridData.forEach((row, i) => {
+      row.forEach((cell, j) => {
+        const cellDiv = document.createElement("div");
+        cellDiv.className = "cell";
+        if (cell === 1) {
+          cellDiv.classList.add("black");
+        } else {
+          const input = document.createElement("input");
+          input.maxLength = 1;
+          input.dataset.row = i;
+          input.dataset.col = j;
+          input.oninput = function() {
+            this.value = this.value.toUpperCase();
+          };
+          cellDiv.appendChild(input);
+          // Если нужно добавить номер подсказки, можно раскомментировать и настроить:
+          // const numDiv = document.createElement("div");
+          // numDiv.className = "number";
+          // numDiv.textContent = "1";
+          // cellDiv.appendChild(numDiv);
+        }
+        puzzleContainer.appendChild(cellDiv);
+      });
+    });
+
+    const cluesContainer = document.getElementById("clues");
+    clues.forEach(clue => {
+      const clueDiv = document.createElement("div");
+      clueDiv.textContent = `${clue.number}. (${clue.direction}) ${clue.clue} (${clue.answer.length} букв)`;
+      cluesContainer.appendChild(clueDiv);
+    });
+
+    function checkAnswers(){
+      alert("Функция проверки не реализована. Это шаблон сканворда.");
+    }
+  </script>
+</body>
+</html>
