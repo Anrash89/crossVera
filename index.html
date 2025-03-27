@@ -1,0 +1,226 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <!-- Обеспечиваем корректное масштабирование на мобильных устройствах -->
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Сканворд</title>
+  <!-- Подключение шрифта Roboto -->
+  <link href="https://fonts.googleapis.com/css?family=Roboto:400,700&display=swap" rel="stylesheet">
+  <style>
+    body {
+      margin: 0;
+      font-family: 'Roboto', sans-serif;
+      background: #f0f2f5;
+      color: #333;
+      padding: 10px;
+    }
+    .container {
+      max-width: 600px;
+      margin: 0 auto;
+      background: #fff;
+      padding: 15px;
+      border-radius: 8px;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.1);
+    }
+    h1, h2 {
+      text-align: center;
+      margin-top: 10px;
+    }
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(10, 1fr);
+      gap: 2px;
+      margin: 20px 0;
+    }
+    .cell {
+      background: #ecf0f1;
+      border: 1px solid #bdc3c7;
+      position: relative;
+      aspect-ratio: 1/1;
+    }
+    .cell input {
+      width: 100%;
+      height: 100%;
+      border: none;
+      text-align: center;
+      font-size: 18px;
+      text-transform: uppercase;
+      outline: none;
+      background: transparent;
+    }
+    .black {
+      background: #34495e;
+    }
+    #clues {
+      background: #fafafa;
+      border: 1px solid #bdc3c7;
+      padding: 15px;
+      border-radius: 8px;
+      margin-bottom: 20px;
+      font-size: 16px;
+      line-height: 1.4;
+    }
+    #clues div {
+      margin-bottom: 8px;
+    }
+    button {
+      display: block;
+      width: 100%;
+      padding: 12px;
+      font-size: 18px;
+      background: #27ae60;
+      border: none;
+      color: #fff;
+      border-radius: 8px;
+      cursor: pointer;
+      transition: background 0.3s;
+    }
+    button:active {
+      background: #1e8449;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>Сканворд</h1>
+    <div id="puzzle" class="grid"></div>
+    
+    <h2>Подсказки</h2>
+    <div id="clues"></div>
+    
+    <button onclick="checkAnswers()">Проверить</button>
+  </div>
+  
+  <script>
+    /* 
+      Этот шаблон основывается на двух основных идеях:
+      1. solutionMatrix – двумерный массив (10х10), где каждая ячейка либо содержит правильную букву, либо null (если клетка заблокирована).
+      2. clues – массив объектов-подсказок. Для каждой подсказки задаются:
+         - number – номер подсказки,
+         - direction – направление ("горизонтально" или "вертикально"),
+         - clue – текст подсказки,
+         - answer – правильное слово,
+         - cells – массив координат вида [row, col] (порядок соответствует буквам слова).
+      
+      Если одна клетка используется в пересечении двух слов, она входит в массив cells обоих подсказок, и вводимое пользователем значение будет использоваться при проверке для обоих.
+      
+      **ВАЖНО!** Перед использованием адаптируйте solutionMatrix и clues так, чтобы все пересечения были корректны.
+    */
+    
+    const rows = 10, cols = 10;
+    
+    // Пример решения (solutionMatrix)
+    // Значения – буквы (строчными или заглавными, сравнение ведётся в верхнем регистре)
+    // null означает заблокированную (черную) клетку
+    const solutionMatrix = [
+      // Строка 0
+      [null, "Б", null, null, null, null, null, "А", "П", "П"],
+      // Строка 1
+      ["К", "О", "Д", null, null, null, null, null, null, "А"],
+      // Строка 2
+      [null, "Т", "В", null, "В", null, null, null, "А", "З"],
+      // Строка 3
+      [null, "Т", "Е", "Л", "Е", "Г", "Р", "А", "М", "Л"],
+      // Строка 4
+      ["С", null, "Б", null, "Ф", "Л", "А", "С", "К", null],
+      // Строка 5
+      [null, null, null, "С", "К", "А", "Н", null, null, null],
+      // Строка 6
+      ["О", null, null, "Л", null, null, null, null, "J", null],
+      // Строка 7
+      ["В", "Ч", null, "И", "H", "T", "M", "L", "S", null],
+      // Строка 8
+      ["О", null, "О", "С", "C", "S", null, null, null, null],
+      // Строка 9
+      ["Т", null, "Т", "Т", "П", "И", "Т", "О", "Н", null]
+    ];
+    // Обратите внимание: этот пример решения – лишь шаблон и может быть изменён для получения корректных пересечений!
+    
+    // Определяем массив подсказок
+    const clues = [
+      { number: 1, direction: "горизонтально", clue: "Программный ___", answer: "КОД", cells: [[1,0], [1,1], [1,2]] },
+      { number: 2, direction: "вертикально",   clue: "Чат-___",         answer: "БОТ", cells: [[0,1], [1,1], [2,1]] },
+      { number: 3, direction: "горизонтально", clue: "Мессенджер",      answer: "ТЕЛЕГРАМ", cells: [[3,1], [3,2], [3,3], [3,4], [3,5], [3,6], [3,7], [3,8]] },
+      { number: 4, direction: "вертикально",   clue: "Интернет-___",    answer: "ВЕБ", cells: [[2,2], [3,2], [4,2]] },
+      { number: 5, direction: "горизонтально", clue: "Мобильное ___",   answer: "АПП", cells: [[0,7], [0,8], [0,9]] },
+      { number: 6, direction: "горизонтально", clue: "Сканировать",     answer: "СКАН", cells: [[5,3], [5,4], [5,5], [5,6]] },
+      { number: 7, direction: "вертикально",   clue: "Головоломка",     answer: "ПАЗЛ", cells: [[0,9], [1,9], [2,9], [3,9]] },
+      { number: 8, direction: "вертикально",   clue: "Единица информации", answer: "СЛОВО", cells: [[4,0], [5,0], [6,0], [7,0], [8,0]] },
+      { number: 9, direction: "вертикально",   clue: "Лист растения",   answer: "ЛИСТ", cells: [[6,3], [7,3], [8,3], [9,3]] },
+      { number: 10, direction: "горизонтально", clue: "Язык разметки",    answer: "HTML", cells: [[7,4], [7,5], [7,6], [7,7]] },
+      { number: 11, direction: "горизонтально", clue: "Каскадные стили",  answer: "CSS", cells: [[8,4], [8,5], [8,6]] },
+      { number: 12, direction: "вертикально",   clue: "Язык программирования", answer: "JS", cells: [[6,8], [7,8]] },
+      { number: 13, direction: "горизонтально", clue: "Змея",            answer: "ПИТОН", cells: [[9,4], [9,5], [9,6], [9,7], [9,8]] },
+      { number: 14, direction: "горизонтально", clue: "Веб-фреймворк",     answer: "ФЛАСК", cells: [[4,4], [4,5], [4,6], [4,7], [4,8]] },
+      { number: 15, direction: "вертикально",   clue: "Онлайн-общение",   answer: "ЧАТ", cells: [[7,1], [8,1], [9,1]] }
+    ];
+    
+    // Создаём объект для хранения input-элементов по координатам (ключ: "row,col")
+    const inputs = {};
+    
+    // Генерируем сетку по solutionMatrix
+    const puzzleContainer = document.getElementById("puzzle");
+    for (let r = 0; r < rows; r++) {
+      for (let c = 0; c < cols; c++) {
+        const cellDiv = document.createElement("div");
+        cellDiv.className = "cell";
+        if (solutionMatrix[r][c] !== null) {
+          const input = document.createElement("input");
+          input.maxLength = 1;
+          input.style.textTransform = "uppercase";
+          input.dataset.row = r;
+          input.dataset.col = c;
+          // Сохраняем ссылку для проверки
+          inputs[`${r},${c}`] = input;
+          cellDiv.appendChild(input);
+        } else {
+          cellDiv.classList.add("black");
+        }
+        puzzleContainer.appendChild(cellDiv);
+      }
+    }
+    
+    // Отображаем список подсказок
+    const cluesContainer = document.getElementById("clues");
+    clues.forEach(clue => {
+      const clueDiv = document.createElement("div");
+      clueDiv.textContent = `${clue.number}. (${clue.direction}) ${clue.clue} (${clue.answer.length} букв)`;
+      cluesContainer.appendChild(clueDiv);
+    });
+    
+    // Функция проверки ответов: сравниваем введённые буквы с solutionMatrix по координатам, указанным в clues
+    function checkAnswers(){
+      let allCorrect = true;
+      // Сбрасываем подсветку
+      Object.values(inputs).forEach(input => input.style.backgroundColor = "");
+      
+      clues.forEach(clue => {
+        let userAnswer = "";
+        clue.cells.forEach(([r, c]) => {
+          const letter = inputs[`${r},${c}`].value.toUpperCase();
+          userAnswer += letter;
+        });
+        if (userAnswer !== clue.answer) {
+          allCorrect = false;
+          // Подсвечиваем ячейки для данного слова красным
+          clue.cells.forEach(([r, c]) => {
+            inputs[`${r},${c}`].style.backgroundColor = "rgba(255,0,0,0.3)";
+          });
+        } else {
+          // Если слово введено верно – подсвечиваем зелёным
+          clue.cells.forEach(([r, c]) => {
+            inputs[`${r},${c}`].style.backgroundColor = "rgba(0,255,0,0.3)";
+          });
+        }
+      });
+      
+      if (allCorrect) {
+        alert("Поздравляем, все слова введены верно!");
+      } else {
+        alert("Есть ошибки. Проверьте введённые буквы.");
+      }
+    }
+  </script>
+</body>
+</html>
